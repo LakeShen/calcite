@@ -3713,7 +3713,7 @@ public abstract class RelOptUtil {
 
   /**
    * Pushes down expressions in "equal" join condition.
-   *
+   *C
    * <p>For example, given
    * "emp JOIN dept ON emp.deptno + 1 = dept.deptno", adds a project above
    * "emp" that computes the expression

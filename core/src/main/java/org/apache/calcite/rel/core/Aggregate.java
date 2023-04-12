@@ -481,8 +481,11 @@ public abstract class Aggregate extends SingleRel implements Hintable {
 
   /** Describes the kind of roll-up. */
   public enum Group {
+    // 普通的聚合函数
     SIMPLE,
+    // roll up，每个集合，group sets 都是上一个的字节
     ROLLUP,
+    // 2'n 次
     CUBE,
     OTHER;
 

@@ -78,15 +78,18 @@ public abstract class RelOptMaterializations {
   public static List<Pair<RelNode, List<RelOptMaterialization>>> useMaterializedViews(
       final RelNode rel, List<RelOptMaterialization> materializations,
       List<SubstitutionVisitor.UnifyRule> materializationRules) {
+    // 获取可用的物化集合
     final List<RelOptMaterialization> applicableMaterializations =
         getApplicableMaterializations(rel, materializations);
     final List<Pair<RelNode, List<RelOptMaterialization>>> applied =
         new ArrayList<>();
     applied.add(Pair.of(rel, ImmutableList.of()));
+    // 遍历每一个物化，开始进行物化改写
     for (RelOptMaterialization m : applicableMaterializations) {
       int count = applied.size();
       for (int i = 0; i < count; i++) {
         Pair<RelNode, List<RelOptMaterialization>> current = applied.get(i);
+        // 使用 UnifyRules 进行改写
         List<RelNode> sub = substitute(current.left, m, materializationRules);
         if (!sub.isEmpty()) {
           ImmutableList.Builder<RelOptMaterialization> builder =

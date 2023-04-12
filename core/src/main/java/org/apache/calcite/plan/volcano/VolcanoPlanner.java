@@ -305,6 +305,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
     // Avoid using materializations while populating materializations!
     final CalciteConnectionConfig config =
         context.unwrap(CalciteConnectionConfig.class);
+    // 如果 config 配置是 null or 物化视图改写关闭，直接 return
     if (config == null || !config.materializationsEnabled()) {
       return;
     }
@@ -313,8 +314,10 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
     assert originalRoot != null : "originalRoot";
 
     // Register rels using materialized views.
+    // 使用物化视图改写之前，需要将 materializeview 注册进来
     final List<Pair<RelNode, List<RelOptMaterialization>>> materializationUses =
         RelOptMaterializations.useMaterializedViews(originalRoot, materializations);
+    // 如果有物化改写成功的计划，注册到 搜索空间中
     for (Pair<RelNode, List<RelOptMaterialization>> use : materializationUses) {
       RelNode rel = use.left;
       Hook.SUB.run(rel);
@@ -330,6 +333,8 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
     for (Pair<RelNode, List<RelOptMaterialization>> use : materializationUses) {
       applicableMaterializations.removeAll(use.right);
     }
+
+    // 注册物化视图本身的等价计划，可以结合 CBO 阶段来进行替换
     for (RelOptMaterialization materialization : applicableMaterializations) {
       RelSubset subset = registerImpl(materialization.queryRel, null);
       explorationRoots.add(subset);
@@ -500,6 +505,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
       return rel2;
     }
 
+    // 在 rel2 的 set 里面，创建一个 RelSubSet
     return rel2.set.getOrCreateSubset(
         rel.getCluster(), toTraits, true);
   }
@@ -518,8 +524,9 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
   @Override public RelNode findBestExp() {
     assert root != null : "root must not be null";
     ensureRootConverters();
+    // 物化视图的改写
     registerMaterializations();
-
+    // 开始优化
     ruleDriver.drive();
 
     if (LOGGER.isTraceEnabled()) {
@@ -695,7 +702,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
   }
 
   /**
-   * Sets whether this planner should consider rel nodes with Convention.NONE
+   * Sets whether this planner should consider rel nodes with ConvNONEention.
    * to have infinite cost or not.
    * @param infinite Whether to make none convention rel nodes infinite cost
    */

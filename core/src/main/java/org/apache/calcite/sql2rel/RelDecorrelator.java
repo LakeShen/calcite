@@ -208,7 +208,9 @@ public class RelDecorrelator implements ReflectiveVisitor {
    */
   public static RelNode decorrelateQuery(RelNode rootRel,
       RelBuilder relBuilder) {
+    // 先使用 CorelMapBuilder 来找到关联相关的变量
     final CorelMap corelMap = new CorelMapBuilder().build(rootRel);
+    // 如果没有关联性
     if (!corelMap.hasCorrelation()) {
       return rootRel;
     }
@@ -217,7 +219,7 @@ public class RelDecorrelator implements ReflectiveVisitor {
     final RelDecorrelator decorrelator =
         new RelDecorrelator(corelMap,
             cluster.getPlanner().getContext(), relBuilder);
-
+  // 先尝试使用 RemoveSingleAggregateRule、RemoveCorrelationForScalarProjectRule、RemoveCorrelationForScalarAggregateRule
     RelNode newRootRel = decorrelator.removeCorrelationViaRule(rootRel);
 
     if (SQL2REL_LOGGER.isDebugEnabled()) {
@@ -305,6 +307,7 @@ public class RelDecorrelator implements ReflectiveVisitor {
 
     final Frame frame = getInvoke(root, false, null);
     if (frame != null) {
+      // 解关联之后的最终的结果，然后在使用 FILTER_INTO_JOIN、JOIN_CONDITION_PUSH 两种规则来进行处理
       // has been rewritten; apply rules post-decorrelation
       final HepProgramBuilder builder = HepProgram.builder()
           .addRuleInstance(
@@ -321,6 +324,7 @@ public class RelDecorrelator implements ReflectiveVisitor {
       final HepProgram program2 = builder.build();
 
       final HepPlanner planner2 = createPlanner(program2);
+      // 解关联完成后，还会使用 FILTER_INTO_JOIN、JOIN_CONDITION_PUSH 两种规则来进行处理，然后返回
       final RelNode newRoot = frame.r;
       planner2.setRoot(newRoot);
       return planner2.findBestExp();
@@ -1008,6 +1012,7 @@ public class RelDecorrelator implements ReflectiveVisitor {
       }
       // If all correlation variables are now satisfied, skip creating a value
       // generator.
+      // 如果关联变量都是等值条件的
       if (map.size() == corVarList.size()) {
         map.putAll(frame.corDefOutputs);
         final RelNode r;
@@ -2894,9 +2899,12 @@ public class RelDecorrelator implements ReflectiveVisitor {
 
   /** Builds a {@link org.apache.calcite.sql2rel.RelDecorrelator.CorelMap}. */
   public static class CorelMapBuilder extends RelHomogeneousShuttle {
+    // CorrelationId 为用到的输入表
+    // RelNode 就是 LogicalCorrelate
     final NavigableMap<CorrelationId, RelNode> mapCorToCorRel =
         new TreeMap<>();
 
+    // Key 为 RelNode，Value 为这个 RelNode 使用到的外部关联变量
     final SortedSetMultimap<RelNode, CorRef> mapRefRelToCorRef =
         MultimapBuilder.SortedSetMultimapBuilder.hashKeys()
             .treeSetValues()

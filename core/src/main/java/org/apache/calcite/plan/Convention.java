@@ -92,6 +92,7 @@ public interface Convention extends RelTrait {
 
   /**
    * Default implementation.
+   * 每次一旦物理特质变化，都会走到这个方法的 enforce 里面
    */
   class Impl implements Convention {
     private final String name;

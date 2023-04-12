@@ -106,6 +106,12 @@ class TopDownOptTest {
     sql(sql, this::initPlanner).check();
   }
 
+  @Test void testxing() {
+    final String sql = "select * from sales.emp";
+    sql(sql, this::initPlanner).check();
+  }
+
+
   @Test void testSortAggPartialKey() {
     final String sql = "select mgr,deptno,comm,count(*) from sales.emp\n"
         + "group by mgr,deptno,comm\n"

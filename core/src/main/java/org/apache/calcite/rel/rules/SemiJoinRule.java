@@ -74,9 +74,11 @@ public abstract class SemiJoinRule
     if (project != null) {
       final ImmutableBitSet bits =
           RelOptUtil.InputFinder.bits(project.getProjects(), null);
+      // 右边的 column 的 index
       final ImmutableBitSet rightBits =
           ImmutableBitSet.range(left.getRowType().getFieldCount(),
               join.getRowType().getFieldCount());
+      // 如果 project 字段有右边的字段，直接 return
       if (bits.intersects(rightBits)) {
         return;
       }
@@ -87,6 +89,7 @@ public abstract class SemiJoinRule
       }
     }
     final JoinInfo joinInfo = join.analyzeCondition();
+    // 其实就是 right keys 和 group by 里面的值一致
     if (!joinInfo.rightSet().equals(
         ImmutableBitSet.range(aggregate.getGroupCount()))) {
       // Rule requires that aggregate key to be the same as the join key.
@@ -173,6 +176,9 @@ public abstract class SemiJoinRule
       default ProjectToSemiJoinRuleConfig withOperandFor(Class<? extends Project> projectClass,
           Class<? extends Join> joinClass,
           Class<? extends Aggregate> aggregateClass) {
+        //              Project
+        //              Joinp[Left Or Inner]
+        //      RelNode                  Aggregate
         return withOperandSupplier(b ->
             b.operand(projectClass).oneInput(b2 ->
                 b2.operand(joinClass)
@@ -256,6 +262,7 @@ public abstract class SemiJoinRule
       final ImmutableBitSet rightBits =
           ImmutableBitSet.range(left.getRowType().getFieldCount(),
               join.getRowType().getFieldCount());
+      // 也就是没有 select 右边表的字段
       return !bits.intersects(rightBits);
     }
 
@@ -268,6 +275,7 @@ public abstract class SemiJoinRule
       final JoinInfo joinInfo = join.analyzeCondition();
       final RelOptCluster cluster = join.getCluster();
       final RelMetadataQuery mq = cluster.getMetadataQuery();
+      // 需要配合元数据来判断列是不是唯一键，和右表 join 的 key 是唯一键 ，且该 RelNode
       final Boolean unique = mq.areColumnsUnique(right, joinInfo.rightSet());
       if (unique != null && unique) {
         final RelBuilder builder = call.builder();
@@ -293,6 +301,10 @@ public abstract class SemiJoinRule
      */
     @Value.Immutable
     public interface JoinOnUniqueToSemiJoinRuleConfig extends SemiJoinRule.Config {
+
+      //              Project
+      //              Joinp[Left Or Inner]
+      //      RelNode                  不是 Aggregate 的 RelNode
       JoinOnUniqueToSemiJoinRuleConfig DEFAULT = ImmutableJoinOnUniqueToSemiJoinRuleConfig.of()
           .withDescription("SemiJoinRule:unique")
           .withOperandSupplier(b ->

@@ -130,7 +130,7 @@ public class RelSubset extends AbstractRelNode {
   private boolean enforceDisabled = false;
 
   /**
-   * The upper bound of the last OptimizeGroup call.
+   * The upper bound of the last OptimizeGroup call. group 的 cost 上界
    */
   RelOptCost upperBound;
 
@@ -204,6 +204,7 @@ public class RelSubset extends AbstractRelNode {
     return (state & DELIVERED) == DELIVERED;
   }
 
+  // RelSubset 是不是上层需要的物理特质的 RelSubset
   @API(since = "1.23", status = API.Status.EXPERIMENTAL)
   public boolean isRequired() {
     return (state & REQUIRED) == REQUIRED;
@@ -478,6 +479,7 @@ public class RelSubset extends AbstractRelNode {
   }
 
   void setOptimized() {
+    // 设置 Group 已经优化完了
     taskState = OptimizeState.COMPLETED;
   }
 

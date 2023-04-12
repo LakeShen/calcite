@@ -199,6 +199,7 @@ public class Frameworks {
    *
    * @param addMetadataSchema Whether to add "metadata" schema containing
    *    definitions of tables, columns etc.
+   *    默认把 tpc-ds 的添加进去了？
    */
   public static SchemaPlus createRootSchema(boolean addMetadataSchema) {
     return CalciteSchema.createRootSchema(addMetadataSchema).plus();

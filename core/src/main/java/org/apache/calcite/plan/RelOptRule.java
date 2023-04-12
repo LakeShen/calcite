@@ -587,6 +587,7 @@ public abstract class RelOptRule {
    * @param toTraits desired traits
    * @return a relational expression with the desired traits; never null
    */
+  // 这个方法就是 PassThrough toTraits 到
   public static RelNode convert(RelNode rel, RelTraitSet toTraits) {
     RelOptPlanner planner = rel.getCluster().getPlanner();
 
@@ -601,7 +602,10 @@ public abstract class RelOptRule {
     if (rel.getTraitSet().matches(outTraits)) {
       return rel;
     }
-
+   // 会在对应的 RelNode 所属的 RelSet 里面创建一个 RelSubSet，同时 RelSubset 为期望的 RelSubSet
+    // 这个里面会做添加 enforcer 的操作，在 RelSet 的 addConverter 里面
+    // 有 outTraits 的RelSubSet，就直接添加
+    // 没有的话，最终还是会走到 RelSet 的 addConverter 方法中，会做 enforce 逻辑
     return planner.changeTraits(rel, outTraits);
   }
 

@@ -20,7 +20,7 @@ import org.apache.calcite.linq4j.function.Experimental;
 import org.apache.calcite.sql.fun.SqlLibrary;
 
 /**
- * Enumeration of valid SQL compatibility modes.
+ * enumeration of valid sql compatibility modes.
  *
  * <p>For most purposes, one of the built-in compatibility modes in enum
  * {@link SqlConformanceEnum} will suffice.

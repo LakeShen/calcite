@@ -463,6 +463,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
     // parentheses-free functions such as LOCALTIME into explicit function
     // calls.
     SqlNode expanded = expandSelectExpr(selectItem, scope, select);
+    //TODO 统一转成别名
     final String alias =
         SqlValidatorUtil.alias(selectItem, aliases.size());
 
@@ -483,9 +484,9 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
 
     selectItems.add(expanded);
     aliases.add(alias);
-
+    // 先对 SqlOperator 的未知类型的参数做类型推倒（SqlCall 会参考SqlOperandTypeInference ，如果有的话）
     inferUnknownTypes(targetType, selectScope, expanded);
-
+    // 对 SqlOperator 返回类型做推倒
     RelDataType type = deriveType(selectScope, expanded);
     // Re-derive SELECT ITEM's data type that may be nullable in
     // AggregatingSelectScope when it appears in advanced grouping elements such
@@ -3741,6 +3742,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         (SelectScope) requireNonNull(getFromScope(select),
             () -> "fromScope for " + select);
     List<@Nullable String> names = fromScope.getChildNames();
+    // 如果 Calcite 里面定义的大小写不敏感，统一转成大小
     if (!catalogReader.nameMatcher().isCaseSensitive()) {
       //noinspection RedundantTypeArguments
       names = names.stream()

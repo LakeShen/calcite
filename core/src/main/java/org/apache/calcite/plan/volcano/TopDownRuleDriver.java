@@ -60,7 +60,7 @@ class TopDownRuleDriver implements RuleDriver {
   private final TopDownRuleQueue ruleQueue;
 
   /**
-   * All tasks waiting for execution.
+   * All tasks waiting for execution.任务栈
    */
   private final Stack<Task> tasks = new Stack<>(); // TODO: replace with Deque
 
@@ -91,7 +91,9 @@ class TopDownRuleDriver implements RuleDriver {
     TaskDescriptor description = new TaskDescriptor();
 
     // Starting from the root's OptimizeGroup task.
+    // 先创建 Optimize Group Task
     tasks.push(
+        // 最开始初始化 Group 的上界为无穷大
         new OptimizeGroup(
             requireNonNull(planner.root, "planner.root"),
             planner.infCost));
@@ -183,8 +185,9 @@ class TopDownRuleDriver implements RuleDriver {
   // A callback invoked when a RelNode is going to be added into a RelSubset,
   // either by Register or Reregister. The task driver should schedule tasks
   // for the new nodes.
+  // 新产生的节点，以及其对应的 Group, node 的物理特质和 subset 是一致的
   @Override public void onProduce(RelNode node, RelSubset subset) {
-
+    // Node 是新产生的 Node，以及其所在的 Group 产生了新的 Properties
     // If the RelNode is added to another RelSubset, just ignore it.
     // It should be scheduled in the later OptimizeGroup task.
     if (applying == null || subset.set
@@ -196,13 +199,14 @@ class TopDownRuleDriver implements RuleDriver {
     if (!requireNonNull(applying, "applying").onProduce(node)) {
       return;
     }
-
+    // 如果不是逻辑的，那么就是物理的
     if (!planner.isLogical(node)) {
       // For a physical node, schedule tasks to optimize its inputs.
       // The upper bound depends on all optimizing RelSubsets that this RelNode belongs to.
       // If there are optimizing subsets that come from the same RelSet,
       // invoke the passThrough method to generate a candidate for that Subset.
       RelSubset optimizingGroup = null;
+      // 看看能不能 pass through，pass Through 过的，不会再走下面逻辑
       boolean canPassThrough = node instanceof PhysicalNode
           && !passThroughCache.contains(node);
       if (!canPassThrough && subset.taskState != null) {
@@ -211,21 +215,32 @@ class TopDownRuleDriver implements RuleDriver {
         RelOptCost upperBound = planner.zeroCost;
         RelSet set = subset.getSet();
         List<RelSubset> subsetsToPassThrough = new ArrayList<>();
+        // 遍历当前 set 所有的 RelSubset(物理特质)
         for (RelSubset otherSubset : set.subsets) {
+          // None.any.any 不需要添加，也就是默认的
+          // 新产生的 RelSubSet 不需要添加，也就是不是在优化中的 Set
           if (!otherSubset.isRequired() || otherSubset != planner.root
               && otherSubset.taskState != RelSubset.OptimizeState.OPTIMIZING) {
             continue;
           }
+          // 如果通过 ConverterRule产出的 RelNode 节点本身已经满足对应的物理特质
+          // 新产出的节点的物理特质，otherSubset 是否满足
           if (node.getTraitSet().satisfies(otherSubset.getTraitSet())) {
             if (upperBound.isLt(otherSubset.upperBound)) {
               upperBound = otherSubset.upperBound;
               optimizingGroup = otherSubset;
             }
-          } else if (canPassThrough) {
+          }
+          // 如果可以 passthrough
+          else if (canPassThrough) {
+            // 假如到需要 passthrough 的集合中
             subsetsToPassThrough.add(otherSubset);
           }
         }
+        // 便利每个需要便利的 RelTraitSet
         for (RelSubset otherSubset : subsetsToPassThrough) {
+          // 创建新的 OptimizeInputTask
+          // othersubset 就是 group，期望的属性
           Task task = getOptimizeInputTask(node, otherSubset);
           if (task != null) {
             tasks.push(task);
@@ -235,11 +250,14 @@ class TopDownRuleDriver implements RuleDriver {
       if (optimizingGroup == null) {
         return;
       }
+      // 如果产出的是物理算子，那么直接就初始化 OptimizeInputTask
       Task task = getOptimizeInputTask(node, optimizingGroup);
       if (task != null) {
         tasks.push(task);
       }
-    } else {
+    }
+    // 如果是逻辑的表达式，那么新生成一个 OptimizeMExpr Task -> ApplyRule Task，以及探索其输入 Group
+    else {
       boolean optimizing = subset.set.subsets.stream()
           .anyMatch(s -> s.taskState == RelSubset.OptimizeState.OPTIMIZING);
       GeneratorTask applying = requireNonNull(this.applying, "this.applying");
@@ -308,6 +326,7 @@ class TopDownRuleDriver implements RuleDriver {
    */
   private class OptimizeGroup implements Task {
     private final RelSubset group;
+    // 这是 context 上下文传递过来的
     private RelOptCost upperBound;
 
     OptimizeGroup(RelSubset group, RelOptCost upperBound) {
@@ -316,16 +335,18 @@ class TopDownRuleDriver implements RuleDriver {
     }
 
     @Override public void perform() {
+      // 当前组的 Winner（最优的计划）
       RelOptCost winner = group.getWinnerCost();
+      // 如果有，就直接返回
       if (winner != null) {
         return;
       }
-
+    // 如果 Context 里面的 upperBound 已经比当前 Group 里面的上界小了，不需要再进行探索了（通过上界剪支）
       if (group.taskState != null && upperBound.isLe(group.upperBound)) {
         // Either this group failed to optimize before or it is a ring.
         return;
       }
-
+     // 重新设置 Group 的上界为 Context 里面传递过来的上界
       group.startOptimize(upperBound);
 
       // Cannot decide an actual lower bound before MExpr are fully explored.
@@ -336,11 +357,15 @@ class TopDownRuleDriver implements RuleDriver {
 
       // Optimize mExprs in group.
       List<RelNode> physicals = new ArrayList<>();
+      // 遍历 group 里面所有的 Expression
       for (RelNode rel : group.set.rels) {
+        // 如果是逻辑的 Expression
         if (planner.isLogical(rel)) {
+          // 创建 OptimizeMExpr Task
           tasks.push(new OptimizeMExpr(rel, group, false));
         } else if (rel.isEnforcer()) {
           // Enforcers have lower priority than other physical nodes.
+          // 因为 Task 是放入到栈中，先进后出，所以放在了 0 这个位置
           physicals.add(0, rel);
         } else {
           physicals.add(rel);
@@ -348,6 +373,7 @@ class TopDownRuleDriver implements RuleDriver {
       }
       // Always apply O_INPUTS first so as to get a valid upper bound.
       for (RelNode rel : physicals) {
+        // 创建 优化物理表达式的任务
         Task task = getOptimizeInputTask(rel, group);
         if (task != null) {
           tasks.add(task);
@@ -486,6 +512,7 @@ class TopDownRuleDriver implements RuleDriver {
   private class ApplyRules implements Task {
     private final RelNode mExpr;
     private final RelSubset group;
+    // 是否是探索阶段
     private final boolean exploring;
 
     ApplyRules(RelNode mExpr, RelSubset group, boolean exploring) {
@@ -495,9 +522,12 @@ class TopDownRuleDriver implements RuleDriver {
     }
 
     @Override public void perform() {
+      // 探索阶段，规则必须是 TransformationRule
+      // 如果不是探索阶段，那么都可以
       Pair<RelNode, Predicate<VolcanoRuleMatch>> category =
           exploring ? Pair.of(mExpr, planner::isTransformationRule)
               : Pair.of(mExpr, m -> true);
+      // 规则出来
       VolcanoRuleMatch match = ruleQueue.popMatch(category);
       while (match != null) {
         tasks.push(new ApplyRule(match, group, exploring));
@@ -547,14 +577,17 @@ class TopDownRuleDriver implements RuleDriver {
   private @Nullable Task getOptimizeInputTask(RelNode rel, RelSubset group) {
     // If the physical does not in current optimizing RelSubset, it firstly tries to
     // convert the physical node either by converter rule or traits pass though.
+    // 做 Property Enforcement 的时候，如果新产生的 Expression 的物理特质，不满足 Group，
     if (!rel.getTraitSet().satisfies(group.getTraitSet())) {
       RelNode passThroughRel = convert(rel, group);
+      // 如果 passThroughRel 是 null，直接就返回了
       if (passThroughRel == null) {
         LOGGER.debug("Skip optimizing because of traits: {}", rel);
         return null;
       }
       final RelNode finalPassThroughRel = passThroughRel;
       applyGenerator(null, () ->
+          // 将 passthough 的信息，从新添加到 RelSet 中
           planner.register(finalPassThroughRel, group));
       rel = passThroughRel;
     }
@@ -572,6 +605,7 @@ class TopDownRuleDriver implements RuleDriver {
     }
     // If part of the inputs are not optimized, schedule for the node an OptimizeInput task,
     // which tried to optimize the inputs first and derive traits for further execution.
+    // 如果不做 passThough,物理优化 group，做DeriveTrait
     if (rel.getInputs().size() == 1) {
       return new OptimizeInput1(rel, group);
     }
@@ -585,6 +619,7 @@ class TopDownRuleDriver implements RuleDriver {
   private @Nullable RelNode convert(RelNode rel, RelSubset group) {
     if (!passThroughCache.contains(rel)) {
       if (checkLowerBound(rel, group)) {
+        // 如果 passThrough 产生的新的 RelNode 不是 Null，会放入到 passThrough
         RelNode passThrough = group.passThrough(rel);
         if (passThrough != null) {
           assert passThrough.getConvention() == rel.getConvention();
@@ -617,6 +652,7 @@ class TopDownRuleDriver implements RuleDriver {
     if (upperBound.isInfinite()) {
       return true;
     }
+    // 获取 RelNode 的下界，下界在 RelNode 创建的时候，就已经知道，根据其逻辑属性
     RelOptCost lb = planner.getLowerBound(rel);
     return !upperBound.isLe(lb);
   }
@@ -649,12 +685,16 @@ class TopDownRuleDriver implements RuleDriver {
         return;
       }
 
+      // 获取物理节点的 group，如果底层有多个 child Group，先获取左边的第一个 Group
       RelSubset input = (RelSubset) mExpr.getInput(0);
 
       // Apply enforcing rules.
+      // 所以每次应用玩物理规则之后，就会对其输入进行 RelTraitSet Derive
+      // Derive Trait 的时候，其实其底层的 RelNode 的物理实现，都已经实现好了
       tasks.push(new DeriveTrait(mExpr, group));
-
+      // 传入 input 的 cost 上界，并且检查上界是不是比 input 本身的输入小。
       tasks.push(new CheckInput(null, mExpr, input, 0, upperForInput));
+      // 先优化其左边第一个 child
       tasks.push(new OptimizeGroup(input, upperForInput));
     }
   }
@@ -837,6 +877,7 @@ class TopDownRuleDriver implements RuleDriver {
     }
 
     @Override public void perform() {
+      // 获取所有的输入
       List<RelNode> inputs = mExpr.getInputs();
       for (RelNode input : inputs) {
         if (((RelSubset) input).getWinnerCost() == null) {
@@ -850,6 +891,8 @@ class TopDownRuleDriver implements RuleDriver {
       tasks.push(new ApplyRules(mExpr, group, false));
 
       // Derive traits from inputs.
+      // TODO 一般这个节点是通过 ConverterRule 转换过来的，最原始的实现，且没有经过 passThrough，也就是没有经过 enforce？
+      // TODO passThrough 产生的新的节点，不会可以进入这个方法
       if (!passThroughCache.contains(mExpr)) {
         applyGenerator(this, this::derive);
       }
@@ -860,9 +903,11 @@ class TopDownRuleDriver implements RuleDriver {
           || ((PhysicalNode) mExpr).getDeriveMode() == DeriveMode.PROHIBITED) {
         return;
       }
-
+      // 物理节点
       PhysicalNode rel = (PhysicalNode) mExpr;
+      // DeriveMode 的模式
       DeriveMode mode = rel.getDeriveMode();
+      // RelNode 输入的个数
       int arity = rel.getInputs().size();
       // For OMAKASE.
       List<List<RelTraitSet>> inputTraits = new ArrayList<>(arity);
@@ -872,14 +917,22 @@ class TopDownRuleDriver implements RuleDriver {
         if (mode == DeriveMode.RIGHT_FIRST) {
           childId = arity - i - 1;
         }
-
+        // 获取其相应 ID 的输入
         RelSubset input = (RelSubset) rel.getInput(childId);
         List<RelTraitSet> traits = new ArrayList<>();
         inputTraits.add(traits);
 
+        // 物理特质的数量
         final int numSubset = input.set.subsets.size();
+        // 针对每种 RelSet 里面的 RelSubSet 的类型，
         for (int j = 0; j < numSubset; j++) {
+          // 获取对应的 RelSubset
           RelSubset subset = input.set.subsets.get(j);
+          // 子 group 里面的 RelSubSet 符合一下几种情况，都不会 derive:
+          // 1. 子 Group RelSubSet 是 parent required
+          // 2. 子 Group 的 RelSubSet 不是 Logical None 的
+          // 3. 除了物理转换 Convention 之外的 RelTrait 和 RelNode 一致的，也过滤
+          // 物理转换规则实现的，一般是 Delivered
           if (!subset.isDelivered() || subset.getTraitSet()
               .equalsSansConvention(rel.getCluster().traitSet())) {
             // Ideally we should stop deriving new relnodes when the

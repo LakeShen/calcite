@@ -75,6 +75,8 @@ public interface PhysicalNode extends RelNode {
    * Pass required traitset from parent node to child nodes,
    * returns new node after traits is passed down.
    */
+  // 产生的 PhysicalNode 的物理特质，不满足上游需要的时候，才需要 passThrough
+  // 满足，就不会调用这个方法
   default @Nullable RelNode passThrough(RelTraitSet required) {
     Pair<RelTraitSet, List<RelTraitSet>> p = passThroughTraits(required);
     if (p == null) {
@@ -84,6 +86,7 @@ public interface PhysicalNode extends RelNode {
     assert size == p.right.size();
     List<RelNode> list = new ArrayList<>(size);
     for (int i = 0; i < size; i++) {
+      // 这个里面会调用 planner
       RelNode n = RelOptRule.convert(getInput(i), p.right.get(i));
       list.add(n);
     }

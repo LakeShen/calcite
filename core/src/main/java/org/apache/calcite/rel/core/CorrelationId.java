@@ -33,6 +33,7 @@ public class CorrelationId implements Cloneable, Comparable<CorrelationId> {
   public static final String CORREL_PREFIX = "$cor";
 
   private final int id;
+  // 引用的表
   private final String name;
 
   /**

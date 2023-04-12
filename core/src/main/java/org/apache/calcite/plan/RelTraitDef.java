@@ -119,6 +119,8 @@ public abstract class RelTraitDef<T extends RelTrait> {
    *                                    converters are allowed
    * @return a converted RelNode or null if conversion is not possible
    */
+  // 只有 changeTraitsUsingConverters 才会使用，也就是是 VolcanoPlanner 原来默认的逻辑
+  // 如果是 Top Down 优化器，那么不会走这个逻辑，会走 Convention 里面的 enforce 逻辑
   public abstract @Nullable RelNode convert(
       RelOptPlanner planner,
       RelNode rel,

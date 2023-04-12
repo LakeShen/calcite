@@ -36,5 +36,6 @@ import org.apache.calcite.rel.PhysicalNode;
  * @see VolcanoPlanner
  * @see SubstitutionRule
  */
+// 在哥伦比亚优化器中，这个规则不会匹配到物理的 PhyicalNode，但是在 HepPlanner 中，如果有 PhysicalNode，还是会匹配上，但是如果都是 LogicalNode，不会匹配上
 public interface TransformationRule {
 }

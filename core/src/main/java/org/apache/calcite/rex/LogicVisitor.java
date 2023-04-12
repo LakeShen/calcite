@@ -56,7 +56,9 @@ public class LogicVisitor extends RexUnaryBiVisitor<@Nullable Logic> {
       RexNode seek) {
     final Set<Logic> set = EnumSet.noneOf(Logic.class);
     final LogicVisitor visitor = new LogicVisitor(seek, set);
+
     for (RexNode node : nodes) {
+      // 初始 logic 为 true
       node.accept(visitor, logic);
     }
     // Convert FALSE (which can only exist within LogicVisitor) to
@@ -111,6 +113,7 @@ public class LogicVisitor extends RexUnaryBiVisitor<@Nullable Logic> {
       switch (call.getKind()) {
       case AND:
         break;
+
       default:
         logic = Logic.TRUE_FALSE_UNKNOWN;
       }
@@ -141,7 +144,9 @@ public class LogicVisitor extends RexUnaryBiVisitor<@Nullable Logic> {
   }
 
   @Override public @Nullable Logic visitSubQuery(RexSubQuery subQuery, @Nullable Logic arg) {
+    // 如果子查询的数据类型不是 Nullable
     if (!subQuery.getType().isNullable()) {
+      // 如果传入的逻辑是
       if (arg == Logic.TRUE_FALSE_UNKNOWN) {
         arg = Logic.TRUE_FALSE;
       }

@@ -157,6 +157,7 @@ class HepPlannerTest {
     HepPlanner planner =
         new HepPlanner(
             programBuilder.build());
+    planner.addRule(CoreRules.FILTER_TO_CALC);
     RelNode root = sql(buildUnion(10)).toRel();
     planner.setRoot(root);
     RelNode best = planner.findBestExp();

@@ -25,6 +25,7 @@ public enum DeriveMode {
    * traits to require from the other children. This
    * generally applies to most operators.
    */
+  // 使用左边第一个 Child 的物理特质来 derive
   LEFT_FIRST,
 
   /**
@@ -32,6 +33,7 @@ public enum DeriveMode {
    * traits to require from the other children. Operators
    * like index nested loop join may find this useful.
    */
+  // 使用右边第一个 child 的物理特质来 derive
   RIGHT_FIRST,
 
   /**
@@ -42,6 +44,7 @@ public enum DeriveMode {
    * consider this option. Special customized operators
    * like a Join who has 3 inputs may find this useful too.
    */
+  // 会遍历所有的 child 的物理特质来做 derive
   BOTH,
 
   /**
@@ -50,10 +53,12 @@ public enum DeriveMode {
    * children, the user decides how to make use of these
    * traits and whether to derive new rel nodes.
    */
+  // 传入所有的节点的 RelTrait，以下把所有的 child 的物理特质传入过来，用户来决定是否要做 derive
   OMAKASE,
 
   /**
    * Trait derivation is prohibited.
    */
+  // 禁止做 derive
   PROHIBITED
 }

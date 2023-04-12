@@ -191,12 +191,15 @@ class RelSet {
    */
   void addConverters(RelSubset subset, boolean required,
       boolean useAbstractConverter) {
+
+    // required 一般表示上层是不是 enforcer
     RelOptCluster cluster = subset.getCluster();
+    // 获取 Parent 需要的 RelTraitSet 的 RelSubSet 集合
     List<RelSubset> others =
         subsets.stream()
             .filter(n -> required ? n.isDelivered() : n.isRequired())
             .collect(Collectors.toList());
-
+    // 遍历所有 Parent 期望的 RelTraitSet RelSubset
     for (RelSubset other : others) {
       assert other.getTraitSet().size() == subset.getTraitSet().size();
       RelSubset from = subset;
@@ -219,12 +222,12 @@ class RelSet {
       if (!conversions.add(Pair.of(from.getTraitSet(), to.getTraitSet()))) {
         continue;
       }
-
+      // 和 parent 的差异 RelTrait
       final ImmutableList<RelTrait> difference =
           to.getTraitSet().difference(from.getTraitSet());
 
       boolean needsConverter = false;
-
+      // 遍历所有不同的 RelTrait，只要有一个没有 satisfies，就需要 enforce
       for (RelTrait fromTrait : difference) {
         RelTraitDef traitDef = fromTrait.getTraitDef();
         RelTrait toTrait = to.getTraitSet().getTrait(traitDef);
@@ -234,7 +237,7 @@ class RelSet {
           needsConverter = false;
           break;
         }
-
+        // 当前新的节点的 RelTrait 不满足 Parent 需要的，那么需要 Enforce
         if (!fromTrait.satisfies(toTrait)) {
           needsConverter = true;
         }
@@ -242,6 +245,7 @@ class RelSet {
 
       if (needsConverter) {
         final RelNode enforcer;
+        // 根据是不是 Top Down 优化来判定，是，那么 useAbstractConverter
         if (useAbstractConverter) {
           enforcer = new AbstractConverter(cluster, from, null, to.getTraitSet());
         } else {
@@ -250,7 +254,7 @@ class RelSet {
                   () -> "convention is null for " + subset);
           enforcer = convention.enforce(from, to.getTraitSet());
         }
-
+        // 注册添加完 enforcer 之后的
         if (enforcer != null) {
           cluster.getPlanner().register(enforcer, to);
         }
@@ -263,7 +267,7 @@ class RelSet {
     boolean needsConverter = false;
     final VolcanoPlanner planner = (VolcanoPlanner) cluster.getPlanner();
     RelSubset subset = getSubset(traits);
-
+    // 如果没有对应 RelTraitSet 的 RelSubSet 的话
     if (subset == null) {
       needsConverter = true;
       subset = new RelSubset(cluster, this, traits);
@@ -271,6 +275,7 @@ class RelSet {
       // Need to first add to subset before adding the abstract
       // converters (for others->subset), since otherwise during
       // register() the planner will try to add this subset again.
+      // 先添加一个目标的 RelSubSet
       subsets.add(subset);
 
       if (planner.getListener() != null) {
@@ -283,12 +288,15 @@ class RelSet {
 
     if (subset.getConvention() == Convention.NONE) {
       needsConverter = false;
-    } else if (required) {
+    }
+    // required 是不是需要的，
+    // 如果是 enforcer，required 就是 true
+    else if (required) {
       subset.setRequired();
     } else {
       subset.setDelivered();
     }
-
+    // 如果需要 converter 的话
     if (needsConverter) {
       addConverters(subset, required, !planner.topDownOpt);
     }

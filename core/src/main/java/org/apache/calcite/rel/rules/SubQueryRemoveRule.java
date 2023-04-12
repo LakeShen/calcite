@@ -534,6 +534,7 @@ public class SubQueryRemoveRule
   }
 
   /**
+   * In 子查询转成到 Join
    * Rewrites an IN RexSubQuery into a {@link Join}.
    *
    * @param e            IN sub-query to rewrite
@@ -647,6 +648,7 @@ public class SubQueryRemoveRule
               .collect(Collectors.toList());
       switch (logic) {
       case TRUE:
+        // 左边 key 是否为 nullable
       case TRUE_FALSE:
         builder.filter(conditions);
         builder.project(builder.alias(trueLiteral, "cs"));
@@ -817,6 +819,8 @@ public class SubQueryRemoveRule
     final RexSubQuery e =
         RexUtil.SubQueryFinder.find(project.getProjects());
     assert e != null;
+    // Project  处理的是 TRUE_FALSE_UNKNOWN
+    // 如果 e 的操作数不会为 null，那么会变成 logic TRUE_FALSE
     final RelOptUtil.Logic logic =
         LogicVisitor.find(RelOptUtil.Logic.TRUE_FALSE_UNKNOWN,
             project.getProjects(), e);
@@ -836,18 +840,24 @@ public class SubQueryRemoveRule
       RelOptRuleCall call) {
     final Filter filter = call.rel(0);
     final RelBuilder builder = call.builder();
+    // builder 下面的 input，push build 中
     builder.push(filter.getInput());
     int count = 0;
     RexNode c = filter.getCondition();
+    // 遍历处理 Filter condition 上所有的 RexSubQuery
     while (true) {
+      // 找到一个子查询
       final RexSubQuery e = RexUtil.SubQueryFinder.find(c);
+      // filter 没有找到子查询
       if (e == null) {
         assert count > 0;
         break;
       }
       ++count;
+      // Filter 只处理 True 的逻辑
       final RelOptUtil.Logic logic =
           LogicVisitor.find(RelOptUtil.Logic.TRUE, ImmutableList.of(c), e);
+      // 获取子查询里面的关联逻辑？
       final Set<CorrelationId>  variablesSet =
           RelOptUtil.getVariablesUsed(e.rel);
       final RexNode target =
@@ -867,6 +877,7 @@ public class SubQueryRemoveRule
     final RexSubQuery e =
         RexUtil.SubQueryFinder.find(join.getCondition());
     assert e != null;
+    // Join 也只处理 True 逻辑
     final RelOptUtil.Logic logic =
         LogicVisitor.find(RelOptUtil.Logic.TRUE,
             ImmutableList.of(join.getCondition()), e);

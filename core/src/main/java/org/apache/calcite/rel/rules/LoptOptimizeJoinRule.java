@@ -691,7 +691,9 @@ public class LoptOptimizeJoinRule
       int firstFactor) {
     LoptJoinTree joinTree = null;
     final int nJoinFactors = multiJoin.getNumJoinFactors();
+    // 等待添加的因子
     final BitSet factorsToAdd = BitSets.range(0, nJoinFactors);
+    // 已经添加的因子
     final BitSet factorsAdded = new BitSet(nJoinFactors);
     final List<RexNode> filtersToAdd =
         new ArrayList<>(multiJoin.getJoinFilters());
@@ -729,6 +731,7 @@ public class LoptOptimizeJoinRule
       // add the factor; pass in a bitmap representing the factors
       // this factor joins with that have already been added to
       // the tree
+      // 去掉已经添加之后的因子
       BitSet factorsNeeded =
           multiJoin.getFactorsRefByFactor(nextFactor).toBitSet();
       if (multiJoin.isNullGenerating(nextFactor)) {
@@ -784,6 +787,7 @@ public class LoptOptimizeJoinRule
     int bestWeight = 0;
     Double bestCardinality = null;
     int [][] factorWeights = multiJoin.getFactorWeights();
+    // 遍历每个 Factor
     for (int factor : BitSets.toIter(factorsToAdd)) {
       // if the factor corresponds to a dimension table whose
       // join we can remove, make sure the corresponding fact
@@ -807,7 +811,9 @@ public class LoptOptimizeJoinRule
       // under consideration and the factors that have already
       // been added to the tree
       int dimWeight = 0;
+      // 遍历之前每个已经添加的 Factor
       for (int prevFactor : BitSets.toIter(factorsAdded)) {
+        // 获取之前的权重因子
         int[] factorWeight = requireNonNull(factorWeights, "factorWeights")[prevFactor];
         if (factorWeight[factor] > dimWeight) {
           dimWeight = factorWeight[factor];

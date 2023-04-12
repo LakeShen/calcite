@@ -35,6 +35,8 @@ import java.util.function.Predicate;
  */
 class TopDownRuleQueue extends RuleQueue {
 
+  // 针对每一个 RelNode，都有其相应的优化规则，在添加Expression 的时候，就已经确定好了
+  // substitutionrule 将会先运用，对于一个 Expression 用的优化规则
   private final Map<RelNode, Deque<VolcanoRuleMatch>> matches = new HashMap<>();
 
   private final Set<String> names = new HashSet<>();
@@ -62,6 +64,9 @@ class TopDownRuleQueue extends RuleQueue {
     //   3) push each ApplyRule task into the task stack
     // As a result, substitution rule is executed first since the ApplyRule(substitution) task is
     // popped earlier than the ApplyRule(non-substitution) task from the stack.
+    // 如果不是 SubstitutionRule，比如 ConverterRule，或者普通的规则，放在队列的最开始
+    // 这样找到规则时，最早出队列，优先构建 ApplyRule Task，先进入到 Task 栈中，然后后执行
+    //TODO 这是不是可以优化
     if (!planner.isSubstituteRule(match)) {
       queue.addFirst(match);
     } else {
