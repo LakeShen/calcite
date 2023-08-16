@@ -10656,6 +10656,52 @@ LogicalProject(ENAME=[$1])
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testPushSemiJoinPastJoinRuleRight1">
+    <Resource name="sql">
+      <![CDATA[select e1.ename from emp e1, dept d, emp e2
+where e1.deptno = d.deptno and d.deptno = e2.deptno]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EMPNO=[$0])
+  LogicalFilter(condition=[IS NOT NULL($9)])
+    LogicalCorrelate(correlation=[$cor0], joinType=[left], requiredColumns=[{0}])
+      LogicalTableScan(table=[[CATALOG, SALES, EMPNULLABLES]])
+      LogicalAggregate(group=[{}], agg#0=[MIN($0)])
+        LogicalProject($f0=[true])
+          LogicalFilter(condition=[OR(AND(IS NULL($cor0.EMPNO), IS NULL($7)), IS TRUE(=($cor0.EMPNO, $7)))])
+            LogicalTableScan(table=[[CATALOG, SALES, EMPNULLABLES]])
+]]>
+    </Resource>
+    <Resource name="planMid">
+      <![CDATA[
+LogicalProject(EMPNO=[$0])
+  LogicalFilter(condition=[IS NOT NULL($9)])
+    LogicalCorrelate(correlation=[$cor0], joinType=[left], requiredColumns=[{0}])
+      LogicalTableScan(table=[[CATALOG, SALES, EMPNULLABLES]])
+      LogicalAggregate(group=[{}], agg#0=[MIN($0)])
+        LogicalProject($f0=[true])
+          LogicalFilter(condition=[OR(AND(IS NULL($cor0.EMPNO), IS NULL($7)), IS TRUE(=($cor0.EMPNO, $7)))])
+            LogicalTableScan(table=[[CATALOG, SALES, EMPNULLABLES]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+LogicalProject(EMPNO=[$0])
+  LogicalFilter(condition=[IS NOT NULL($9)])
+    LogicalProject(EMPNO=[$0], ENAME=[$1], JOB=[$2], MGR=[$3], HIREDATE=[$4], SAL=[$5], COMM=[$6], DEPTNO=[$7], SLACKER=[$8], $f0=[$13])
+      LogicalJoin(condition=[AND(=($0, $11), =($9, $12))], joinType=[left])
+        LogicalProject(EMPNO=[$0], ENAME=[$1], JOB=[$2], MGR=[$3], HIREDATE=[$4], SAL=[$5], COMM=[$6], DEPTNO=[$7], SLACKER=[$8], $f9=[false], EMPNO0=[$0])
+          LogicalTableScan(table=[[CATALOG, SALES, EMPNULLABLES]])
+        LogicalAggregate(group=[{0, 1}], agg#0=[MIN($2)])
+          LogicalProject(EMPNO0=[$9], $f9=[$10], $f0=[true])
+            LogicalJoin(condition=[OR(AND($10, IS NULL($7)), =($9, $7))], joinType=[inner])
+              LogicalTableScan(table=[[CATALOG, SALES, EMPNULLABLES]])
+              LogicalProject(EMPNO=[$0], $f9=[false])
+                LogicalTableScan(table=[[CATALOG, SALES, EMPNULLABLES]])
+]]>
+    </Resource>
+  </TestCase>
   <TestCase name="testPushSemiJoinPastProject">
     <Resource name="sql">
       <![CDATA[select e.* from

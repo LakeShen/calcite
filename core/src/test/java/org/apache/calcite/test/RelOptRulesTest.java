@@ -2755,6 +2755,19 @@ class RelOptRulesTest extends RelOptTestBase {
         .check();
   }
 
+  @Test void testPushSemiJoinPastJoinRuleRight1() {
+    // tests the case where the semijoin is pushed to the right
+    final String sql = "select EMPNO\n" +
+        "from EMPNULLABLES\n" +
+        "where EXISTS (select DEPTNO from  EMPNULLABLES dept where EMPNULLABLES.EMPNO is not " +
+        "DISTINCT from dept.DEPTNO) ";
+    sql(sql)
+        .withExpand(true)
+        .withLateDecorrelate(true)
+        .withRule()
+        .check();
+  }
+
   @Test void testPushSemiJoinPastJoinRuleNotHappensJoinKeysDifferentOrigin() {
     // tests the case where the semijoin is not pushed because it uses join keys from both tables
     // of the bottom join.
