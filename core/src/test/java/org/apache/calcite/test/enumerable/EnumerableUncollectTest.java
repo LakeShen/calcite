@@ -23,7 +23,7 @@ import org.apache.calcite.test.CalciteAssert;
 import org.junit.jupiter.api.Test;
 
 /** Test for {@link org.apache.calcite.adapter.enumerable.EnumerableUncollect}. */
-class EnumerableUncollectTest {
+class EnumerableUncollectTest implements EnumerableTestBase {
 
   @Test void simpleUnnestArray() {
     final String sql = "select * from UNNEST(array[3, 4]) as T2(y)";
@@ -200,8 +200,6 @@ class EnumerableUncollectTest {
   }
 
   private CalciteAssert.AssertThat tester() {
-    return CalciteAssert.that()
-        .with(CalciteConnectionProperty.LEX, Lex.JAVA)
-        .with(CalciteConnectionProperty.FORCE_DECORRELATE, false);
+    return buildAssertThat(CalciteConnectionProperty.LEX, Lex.JAVA, false, null, null);
   }
 }
